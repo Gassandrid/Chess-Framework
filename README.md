@@ -1,7 +1,12 @@
-# Tauri + SvelteKit + TypeScript
+# Tauri chess framework
 
-This template should help get you started developing with Tauri, SvelteKit and TypeScript in Vite.
+This framework serves as a environment for further chess engines to be developed and tested with ease, where all the boilerplate interaction functions are taken care of(ex fen string translation, object oriented architecture for chess game, etc)
 
-## Recommended IDE Setup
+## Building Project:
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+- Make sure [Tauri](https://tauri.app/) is properly installed with `cargo install create-tauri-app --locked`
+- Install the Tauri CLI with `cargo install tauri-cli`
+- Clone the repository
+- CD into the project and run `npm install` to install the dependencies
+- Run with `cargo tauri dev`
+
