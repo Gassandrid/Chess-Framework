@@ -3,7 +3,7 @@
 use crate::models::architecture;
 
 impl Model {
-    pub fn from_fen(fen: &str) -> Model {
+    pub fn apply_fen_to_board(fen: &str) {
         let mut board = Board::new();
         let mut moves = Vec::new();
         let mut rank = 7;
@@ -20,7 +20,7 @@ impl Model {
                 file += 1;
             }
         }
-        Model { board, moves }
+        self.board = board;
     }
     pub fn to_fen(&self) -> String {
         let mut fen = String::new();
