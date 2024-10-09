@@ -1,8 +1,8 @@
 // for translating to/from FEN strings
 // FEN strings are used to represent the state of a chess game
-use crate::models::architecture;
+use crate::architecture::piece::Piece;
 
-impl Model {
+impl Board {
     pub fn apply_fen_to_board(fen: &str) {
         let mut board = Board::new();
         let mut moves = Vec::new();
