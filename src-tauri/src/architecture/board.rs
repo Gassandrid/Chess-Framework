@@ -7,7 +7,8 @@ pub struct Board {
 
 // example starter board
 impl Board {
-    pub fn new() -> Board {
+    // a really bad way to load the board, ideally we will use the fen methods in fen.rs
+    pub fn newScratch() -> Board {
         Board {
             pieces: [
                 Piece::ROOK | Piece::WHITE,
@@ -26,10 +27,38 @@ impl Board {
                 Piece::PAWN | Piece::WHITE,
                 Piece::PAWN | Piece::WHITE,
                 Piece::PAWN | Piece::WHITE,
-                // empty squares
-                for _ in 16..48 {
-                    Piece::NONE
-                },
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
+                Piece::NONE,
                 Piece::PAWN | Piece::BLACK,
                 Piece::PAWN | Piece::BLACK,
                 Piece::PAWN | Piece::BLACK,
