@@ -1,4 +1,4 @@
-<script lang="ts">
-</script>
-
-<div class="w-full h-full flex items-center justify-center mt-32">restart</div>
+<h1>Welcome to SvelteKit</h1>
+<p>
+    Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation
+</p>
