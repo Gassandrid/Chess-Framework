@@ -10,9 +10,9 @@
 </script>
 
 <main
-    class="flex flex-row items-center justify-center h-screen overflow-clip rounded-md"
+    class="flex flex-row items-center justify-center h-screen overflow-clip bg-gray-900"
 >
-    <ol class="grid grid-flow-col grid-rows-8">
+    <ol class="grid grid-flow-col grid-rows-8 rounded-md overflow-clip select-none">
         {#each board as row, i}
             <ol class="grid grid-flow-row grid-cols-8">
                 {#each row as cell, j}
@@ -23,7 +23,11 @@
                             <span
                                 class="flex justify-center w-full h-full items-center"
                             >
-                                <img src={string_to_image(cell)} alt="" class="w-3/4 h-3/4" />
+                                <img
+                                    src={string_to_image(cell)}
+                                    alt=""
+                                    class="w-3/4 h-3/4"
+                                />
                             </span>
                         {/if}
                     </li>
