@@ -1,4 +1,5 @@
 import type React from "react";
+// very rudimentary chessboard icon, this is just a placeholder and i probably should have used a real icon
 export function ChessboardIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg

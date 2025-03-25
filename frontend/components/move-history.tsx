@@ -8,6 +8,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+// this is a verbose storage of a move, but similar to move struct in backend
+// NOT similar to move structure of DB though
+
 interface Move {
   from: string;
   to: string;
@@ -16,6 +19,8 @@ interface Move {
   promotion?: string;
   check?: boolean;
   checkmate?: boolean;
+  // will need a function to generate this
+  // TODO: make a function to generate this
   notation: string;
 }
 
@@ -24,7 +29,8 @@ interface MoveHistoryProps {
 }
 
 export default function MoveHistory({ moves }: MoveHistoryProps) {
-  // Group moves into pairs for white and black
+  // we want pairs because we are showing white and black moves together
+  // kind of copying chess.com here
   const moveRows = [];
   for (let i = 0; i < moves.length; i += 2) {
     moveRows.push({

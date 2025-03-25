@@ -21,7 +21,6 @@ export function useToast() {
 
       setToasts((prevToasts) => [...prevToasts, newToast]);
 
-      // Auto dismiss after 5 seconds
       setTimeout(() => {
         setToasts((prevToasts) =>
           prevToasts.filter((toast) => toast.id !== id),

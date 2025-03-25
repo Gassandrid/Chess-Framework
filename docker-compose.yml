@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  # frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: chess-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:3001
+    depends_on:
+      - backend
+    networks:
+      - chess-network
+
+  # rust backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chess-backend
+    ports:
+      - "3001:3001"
+    # will uncomment when the db is implemented
+    # environment:
+    #   - DATABASE_URL=postgres://user:password@db:5432/chess_db
+    # depends_on:
+    #   - db
+    networks:
+      - chess-network
+
+  # # Database
+  # db:
+  #   image: postgres:16-alpine
+  #   container_name: chess-db
+  #   environment:
+  #     - POSTGRES_USER=user
+  #     - POSTGRES_PASSWORD=password
+  #     - POSTGRES_DB=chess_db
+  #   volumes:
+  #     - chess-db-data:/var/lib/postgresql/data
+  #     - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - chess-network
+
+  # # pgAdmin - Database administration tool - Uncomment when needed
+  # pgadmin:
+  #   image: dpage/pgadmin4
+  #   container_name: chess-pgadmin
+  #   environment:
+  #     - PGADMIN_DEFAULT_EMAIL=admin@example.com
+  #     - PGADMIN_DEFAULT_PASSWORD=admin
+  #   ports:
+  #     - "5050:80"
+  #   depends_on:
+  #     - db
+  #   networks:
+  #     - chess-network
+
+# Define network
+networks:
+  chess-network:
+    driver: bridge
+# # Persistent volumes - Uncomment when database is implemented
+# volumes:
+#   chess-db-data:

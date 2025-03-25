@@ -12,8 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, Download } from "lucide-react";
 
+// NOTE: like the game info title card, this is on the side and provides game info. pretty self explanatory,
+// will need to connect to db for consistency
+// Harder challenege will be decodinng the hihg compression game history of a db chess game
+
 export default function MoveHistoryPanel() {
-  // Sample data for demonstration
+  // this data is entirely a sample, will once again need a db connection here
   const games = [
     {
       id: 1,
@@ -56,6 +60,8 @@ export default function MoveHistoryPanel() {
       moves: 45,
     },
   ];
+
+  // the html below also has sample data not implemented yet
 
   return (
     <div className="space-y-6">

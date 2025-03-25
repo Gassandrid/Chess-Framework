@@ -20,6 +20,9 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Play, Plus, Trash2 } from "lucide-react";
 
+// NOTE: this might not be of use, but I have experience working with stokcfish and leela chess zero, and they have tunable parameters
+// not sure if my model will be like this, but I will include stockfish and leela chess zero in the engine settings panel through api or I will run locally
+
 export default function EngineSettingsPanel() {
   return (
     <div className="space-y-6">
@@ -44,9 +47,9 @@ export default function EngineSettingsPanel() {
                       <SelectValue placeholder="Select engine" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="ewan">Ewan Engine V1.1</SelectItem>
                       <SelectItem value="stockfish">Stockfish 16</SelectItem>
                       <SelectItem value="lc0">Leela Chess Zero</SelectItem>
-                      <SelectItem value="komodo">Komodo 14</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -78,9 +81,9 @@ export default function EngineSettingsPanel() {
                       <SelectValue placeholder="Select engine" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="ewan">Ewan Engine V1.1</SelectItem>
                       <SelectItem value="stockfish">Stockfish 16</SelectItem>
                       <SelectItem value="lc0">Leela Chess Zero</SelectItem>
-                      <SelectItem value="komodo">Komodo 14</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -180,9 +183,9 @@ export default function EngineSettingsPanel() {
               <div className="flex items-center justify-between p-4">
                 <div className="flex items-center space-x-4">
                   <div>
-                    <p className="font-medium">Komodo 14</p>
+                    <p className="font-medium">Ewan Engine</p>
                     <p className="text-sm text-muted-foreground">
-                      Version: 14.1
+                      Version: 1.2
                     </p>
                   </div>
                 </div>

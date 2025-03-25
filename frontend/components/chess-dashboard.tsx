@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+// shadcn components
 import {
   Sidebar,
   SidebarContent,
@@ -29,6 +30,7 @@ import {
   Sun,
 } from "lucide-react";
 import ChessGame from "@/components/chess-game";
+//these probably wont be implemented until module 4
 import MoveHistoryPanel from "@/components/move-history-panel";
 import AnalysisPanel from "@/components/analysis-panel";
 import EngineSettingsPanel from "@/components/engine-settings-panel";
@@ -38,6 +40,7 @@ export default function ChessDashboard() {
   const [activePanel, setActivePanel] = useState<string>("game");
   const { theme, setTheme } = useTheme();
 
+  // sidebar options - alot of these wont be implemented until module 4
   const renderPanel = () => {
     switch (activePanel) {
       case "game":
@@ -53,6 +56,7 @@ export default function ChessDashboard() {
     }
   };
 
+  // main return for the whole frontend
   return (
     <SidebarProvider>
       <div className="flex h-screen bg-background">

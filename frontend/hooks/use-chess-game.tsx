@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 
-// Types for the chess game
+// simple piece type, for generating boards quickly
 type PieceType =
   | "p"
   | "r"
@@ -33,7 +33,10 @@ interface Move {
   notation: string;
 }
 
-// Initial board setup (standard chess starting position)
+// initial board state
+// TODO: I might make a load from FEN function for the
+// frontend, would be needed for communication with
+// the backend anyway
 const initialBoardState: BoardState = [
   ["r", "n", "b", "q", "k", "b", "n", "r"],
   ["p", "p", "p", "p", "p", "p", "p", "p"],
@@ -45,14 +48,14 @@ const initialBoardState: BoardState = [
   ["R", "N", "B", "Q", "K", "B", "N", "R"],
 ];
 
-// Convert board coordinates to algebraic notation
+// converting from computer to human readable coordss
 const toAlgebraic = (square: Square): string => {
   const file = String.fromCharCode(97 + square.col);
   const rank = 8 - square.row;
   return `${file}${rank}`;
 };
 
-// This hook manages the chess game state and provides methods for interacting with the backend
+// react hook for the chess game info and data
 export function useChessGame() {
   const [boardState, setBoardState] = useState<BoardState>(initialBoardState);
   const [currentPlayer, setCurrentPlayer] = useState<Player>("white");
@@ -63,36 +66,46 @@ export function useChessGame() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Function to fetch legal moves from the backend
+  // WARNING: THIS IS MOST IMPORTANT IMPLEMENTATION TODO
   const fetchLegalMoves = useCallback(
     async (square: Square) => {
       try {
         setIsLoading(true);
         setError(null);
 
-        // This would be replaced with an actual API call to your backend
-        // Example API call:
-        // const response = await fetch('/api/chess/legal-moves', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({
-        //     position: boardState,
-        //     square: toAlgebraic(square),
-        //     currentPlayer
-        //   })
-        // })
-        // const data = await response.json()
-        // if (!response.ok) throw new Error(data.message)
-        // return data.moves.map(move => ({ row: 8 - parseInt(move[1]), col: move.charCodeAt(0) - 97 }))
+        // Convert board state to a format the Rust backend can understand
+        // You might need to adjust this based on your backend's expected format
+        // const response = await fetch(
+        //   "http://localhost:3001/api/chess/legal-moves",
+        //   {
+        //     method: "POST",
+        //     headers: { "Content-Type": "application/json" },
+        //     body: JSON.stringify({
+        //       position: boardState,
+        //       square: toAlgebraic(square),
+        //       currentPlayer,
+        //     }),
+        //   },
+        // );
+        //
+        // if (!response.ok) {
+        //   const errorData = await response.json();
+        //   throw new Error(errorData.message || "Failed to fetch legal moves");
+        // }
+        //
+        // const data = await response.json();
 
-        // For demo purposes, we'll return some hardcoded moves based on the piece
+        // Convert the moves from algebraic notation to our Square format
+        // Assuming the backend returns an array of algebraic notation moves like ["e4", "e5"]
+        // return data.moves.map((move: string) => ({
+        //   row: 8 - parseInt(move[1]),
+        //   col: move.charCodeAt(0) - 97,
+        // }));
+
+        // Fallback to the mock implementation if the API call fails
         const piece = boardState[square.row][square.col];
-
-        // Mock implementation - in a real app, this would come from the backend
-        // This is just to demonstrate the UI flow
         const mockMoves: Square[] = [];
 
-        // Pawn basic moves (very simplified, just for demo)
         if (piece === "P" && square.row > 0) {
           mockMoves.push({ row: square.row - 1, col: square.col });
           if (square.row === 6)
@@ -103,7 +116,6 @@ export function useChessGame() {
             mockMoves.push({ row: square.row + 2, col: square.col });
         }
 
-        // Add some random moves for other pieces to demonstrate UI
         if (piece && piece.toLowerCase() !== "p") {
           for (let i = 0; i < 3; i++) {
             const randomRow = Math.floor(Math.random() * 8);
@@ -125,12 +137,13 @@ export function useChessGame() {
     [boardState, currentPlayer],
   );
 
-  // Handle square click
+  // for the square clicking bheavior
+  // know when to activate the legal moves
   const handleSquareClick = useCallback(
     async (square: Square) => {
       const piece = boardState[square.row][square.col];
 
-      // If no square is selected, select this square if it has a piece of the current player
+      // fallback for if no piece is selected
       if (!selectedSquare) {
         if (piece) {
           const isPieceCurrentPlayer =
@@ -146,9 +159,9 @@ export function useChessGame() {
         return;
       }
 
-      // If a square is already selected
+      // given square already selected:
 
-      // If clicking the same square, deselect it
+      // if clicking same square, deselect it
       if (
         selectedSquare.row === square.row &&
         selectedSquare.col === square.col
@@ -158,16 +171,16 @@ export function useChessGame() {
         return;
       }
 
-      // Check if the clicked square is a valid move
+      // check if move second click is a valid move
       const isValidMove = possibleMoves.some(
         (move) => move.row === square.row && move.col === square.col,
       );
 
       if (isValidMove) {
-        // Make the move
+        // mae the move
         makeMove(selectedSquare, square);
       } else {
-        // If clicking another piece of the same color, select that piece instead
+        // if they press one of their own pieces again just select that piece
         const newPiece = boardState[square.row][square.col];
         const isPieceCurrentPlayer =
           (currentPlayer === "white" &&
@@ -182,7 +195,7 @@ export function useChessGame() {
           const legalMoves = await fetchLegalMoves(square);
           setPossibleMoves(legalMoves);
         } else {
-          // If clicking an empty square or opponent's piece that's not a valid move
+          // if empty or no valid
           setSelectedSquare(null);
           setPossibleMoves([]);
         }
@@ -191,62 +204,63 @@ export function useChessGame() {
     [boardState, currentPlayer, selectedSquare, possibleMoves, fetchLegalMoves],
   );
 
-  // Make a move
+  // move bmaker callback
   const makeMove = useCallback(
     async (from: Square, to: Square) => {
       try {
         setIsLoading(true);
         setError(null);
 
-        // This would be replaced with an actual API call to your backend
-        // Example API call:
-        // const response = await fetch('/api/chess/make-move', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({
-        //     position: boardState,
-        //     from: toAlgebraic(from),
-        //     to: toAlgebraic(to),
-        //     currentPlayer
-        //   })
-        // })
-        // const data = await response.json()
-        // if (!response.ok) throw new Error(data.message)
+        // Call the Rust backend to make the move
+        const response = await fetch(
+          "http://localhost:3001/api/chess/make-move",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              position: boardState,
+              from: toAlgebraic(from),
+              to: toAlgebraic(to),
+              currentPlayer,
+            }),
+          },
+        );
 
-        // For demo purposes, we'll update the board state locally
-        const newBoardState = JSON.parse(
-          JSON.stringify(boardState),
-        ) as BoardState;
-        const piece = newBoardState[from.row][from.col];
-        const capturedPiece = newBoardState[to.row][to.col];
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Failed to make move");
+        }
 
-        // Move the piece
-        newBoardState[to.row][to.col] = piece;
-        newBoardState[from.row][from.col] = null;
+        const data = await response.json();
 
-        // Add to move history
+        // Use the new board state returned from the backend
+        // Assuming the backend returns a new board state and game information
+        const newBoardState = data.boardState;
+        const gameStatus = data.gameStatus;
+
+        // Create the move history entry using data from backend
         const newMove: Move = {
           from: toAlgebraic(from),
           to: toAlgebraic(to),
-          piece: piece || "",
-          notation: `${piece}${toAlgebraic(from)}-${toAlgebraic(to)}`,
+          piece: data.piece || boardState[from.row][from.col] || "",
+          capture: data.capture,
+          promotion: data.promotion,
+          check: data.check,
+          checkmate: data.checkmate,
+          notation:
+            data.notation ||
+            `${data.piece}${toAlgebraic(from)}-${toAlgebraic(to)}`,
         };
 
-        if (capturedPiece) {
-          newMove.capture = capturedPiece;
-          newMove.notation = `${piece}${toAlgebraic(from)}x${toAlgebraic(to)}`;
-        }
-
-        // Update state
+        // Update states based on backend response
         setBoardState(newBoardState);
         setMoveHistory([...moveHistory, newMove]);
-        setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
+        setCurrentPlayer(
+          data.nextPlayer || (currentPlayer === "white" ? "black" : "white"),
+        );
         setSelectedSquare(null);
         setPossibleMoves([]);
-
-        // In a real app, the backend would return the new game status
-        // For demo, we'll just keep it active
-        // setGameStatus(data.gameStatus)
+        setGameStatus(gameStatus);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to make move");
       } finally {
@@ -256,22 +270,26 @@ export function useChessGame() {
     [boardState, currentPlayer, moveHistory],
   );
 
-  // Reset the game
+  // game reseter
   const resetGame = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // This would be replaced with an actual API call to your backend
-      // Example API call:
-      // const response = await fetch('/api/chess/new-game', {
-      //   method: 'POST'
-      // })
-      // const data = await response.json()
-      // if (!response.ok) throw new Error(data.message)
+      // Call the Rust backend to reset the game
+      const response = await fetch("http://localhost:3001/api/chess/new-game", {
+        method: "POST",
+      });
 
-      // Reset the game state
-      setBoardState(initialBoardState);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to reset game");
+      }
+
+      const data = await response.json();
+
+      // Use the initial board state from backend or fallback to our default
+      setBoardState(data.boardState || initialBoardState);
       setCurrentPlayer("white");
       setGameStatus("active");
       setSelectedSquare(null);
@@ -284,7 +302,9 @@ export function useChessGame() {
     }
   }, []);
 
-  // Undo the last move
+  // move undoer, i dont reallt know if i want this but
+  // it was an easy implementation at the time,
+  // might not be so easy on backend, esp with an engine
   const undoMove = useCallback(async () => {
     try {
       if (moveHistory.length === 0) return;
@@ -292,35 +312,36 @@ export function useChessGame() {
       setIsLoading(true);
       setError(null);
 
-      // This would be replaced with an actual API call to your backend
-      // Example API call:
-      // const response = await fetch('/api/chess/undo-move', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     position: boardState,
-      //     moveHistory
-      //   })
-      // })
-      // const data = await response.json()
-      // if (!response.ok) throw new Error(data.message)
+      // Call the Rust backend to undo the move
+      const response = await fetch(
+        "http://localhost:3001/api/chess/undo-move",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            position: boardState,
+            moveHistory,
+          }),
+        },
+      );
 
-      // For demo purposes, we'll just remove the last move
-      // In a real app, the backend would handle this and return the new board state
-      const newMoveHistory = [...moveHistory];
-      newMoveHistory.pop();
-
-      // This is a simplified implementation - in a real app, the backend would return the correct board state
-      // Here we're just resetting to the initial state if there are no moves left
-      if (newMoveHistory.length === 0) {
-        setBoardState(initialBoardState);
-        setCurrentPlayer("white");
-      } else {
-        // Toggle the current player
-        setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to undo move");
       }
 
+      const data = await response.json();
+
+      // Use the previous board state from the backend
+      setBoardState(data.boardState);
+      setCurrentPlayer(data.currentPlayer);
+      setGameStatus(data.gameStatus || "active");
+
+      // Update move history by removing the last move
+      const newMoveHistory = [...moveHistory];
+      newMoveHistory.pop();
       setMoveHistory(newMoveHistory);
+
       setSelectedSquare(null);
       setPossibleMoves([]);
     } catch (err) {

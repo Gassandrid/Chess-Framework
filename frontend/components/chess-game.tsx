@@ -2,6 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+// uses the chess game hook
 import ChessBoard from "@/components/chess-board";
 import GameInfo from "@/components/game-info";
 import MoveHistory from "@/components/move-history";
@@ -25,7 +26,7 @@ export default function ChessGame() {
     error,
   } = useChessGame();
 
-  // Show error toast if there's an error
+  //very very terrible and temp error handling
   if (error) {
     toast({
       variant: "destructive",

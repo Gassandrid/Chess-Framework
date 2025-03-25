@@ -52,7 +52,7 @@ export default function GameControls({
 
       <Button className="w-full" variant="default" disabled={isLoading}>
         <Play className="mr-2 h-4 w-4" />
-        Auto Play (Engine vs Engine)
+        Automatic Playing ( engines play each ohter )
       </Button>
     </div>
   );

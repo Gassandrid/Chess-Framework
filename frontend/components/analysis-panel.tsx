@@ -19,8 +19,28 @@ import {
 } from "lucide-react";
 import ChessBoard from "@/components/chess-board";
 
-// Sample board state for demonstration
-const sampleBoardState = [
+// NOTE: This panel is not going to be implemented in
+// this project on the backend, i am good with frontend
+// but rust backend takes time! will complete in module 4
+
+// Type definition to ensure we're using valid piece types
+type PieceType =
+  | "p"
+  | "r"
+  | "n"
+  | "b"
+  | "q"
+  | "k"
+  | "P"
+  | "R"
+  | "N"
+  | "B"
+  | "Q"
+  | "K"
+  | null;
+
+// a sample board game, connect this to DB later
+const sampleBoardState: PieceType[][] = [
   ["r", null, "b", "q", "k", "b", null, "r"],
   ["p", "p", "p", null, null, "p", "p", "p"],
   [null, null, "n", "p", null, "n", null, null],
@@ -31,6 +51,9 @@ const sampleBoardState = [
   ["R", null, "B", "Q", "K", "B", null, "R"],
 ];
 
+// this is an analysis panel, it will be for users to look back on their games
+// once connected to database, user should be able to acdess their games, and maybe we can
+// generate some graphs from it
 export default function AnalysisPanel() {
   return (
     <div className="space-y-6">
@@ -63,6 +86,7 @@ export default function AnalysisPanel() {
               <div className="mt-4">
                 <Slider defaultValue={[15]} max={40} step={1} />
                 <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  {/* this is just a placeholder for now, will eventually implement */}
                   <span>Move 1</span>
                   <span>Current: Move 15</span>
                   <span>Move 40</span>
@@ -71,6 +95,7 @@ export default function AnalysisPanel() {
             </CardContent>
           </Card>
         </div>
+        {/* this is the tab bar for choosing engines and whatnot */}
         <div>
           <Tabs defaultValue="evaluation">
             <TabsList className="grid w-full grid-cols-2">
@@ -140,6 +165,9 @@ export default function AnalysisPanel() {
                   <CardTitle>Engine Analysis</CardTitle>
                   <CardDescription>Depth: 20 | Nodes: 15.4M</CardDescription>
                 </CardHeader>
+                {/* I had idea to implement natural language tooling to 
+                explain why a move is good or bad but i dont know if 
+                this is feasable */}
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">

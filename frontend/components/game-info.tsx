@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 type Player = "white" | "black";
 type GameStatus = "active" | "check" | "checkmate" | "stalemate" | "draw";
 
+// NOTE: This is for the info card on the side of the game board
+// not properly implemented yet, will need to connect  to backend and db for consistency
+
 interface GameInfoProps {
   currentPlayer: Player;
   gameStatus: GameStatus;
