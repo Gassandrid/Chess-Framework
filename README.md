@@ -17,3 +17,14 @@ To run the full app:
 ```bash
 docker-compose up -d
 ```
+
+---
+
+## Future endeavors and features
+
+- [x] Frontend chess game with engine selection and analysis
+- [x] middleware for translating standard UCI commands to the API
+- [x] backend self made chess engine + common chess engines
+- [ ] efficient but detailed database of games and positions and users
+- [ ] Data science tools for analyzing games and positions and graphs
+- [x] Dockerize the whole project + maybe orchestrate with kubernetes
