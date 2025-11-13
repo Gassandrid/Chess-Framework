@@ -1,5 +1,6 @@
 mod api;
 mod chess;
+pub mod engine;
 
 use axum::{
     extract::Extension,
@@ -39,6 +40,10 @@ async fn main() {
         .route("/api/chess/make-move", post(handlers::make_move))
         .route("/api/chess/new-game", post(handlers::new_game))
         .route("/api/chess/undo-move", post(handlers::undo_move))
+        .route("/api/engine/best-move", post(api::engine_handlers::get_best_move))
+        .route("/api/engine/analyze", post(api::engine_handlers::analyze_position))
+        .route("/api/engine/evaluate", post(api::engine_handlers::evaluate_position))
+        .route("/api/engine/perft", post(api::engine_handlers::perft_test))
         .layer(Extension(game))
         .layer(cors);
 
