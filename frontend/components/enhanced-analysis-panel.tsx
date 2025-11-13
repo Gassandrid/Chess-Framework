@@ -60,9 +60,9 @@ export default function EnhancedAnalysisPanel({
   }, [boardState, currentPlayer]);
 
   // Calculate progress bar value from evaluation
-  const getProgressValue = (eval: number) => {
+  const getProgressValue = (evaluation: number) => {
     // Clamp between -1000 and +1000, map to 0-100
-    const clamped = Math.max(-1000, Math.min(1000, eval));
+    const clamped = Math.max(-1000, Math.min(1000, evaluation));
     return ((clamped + 1000) / 2000) * 100;
   };
 
