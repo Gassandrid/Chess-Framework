@@ -27,6 +27,14 @@ path = "src/bin/tournament.rs"
 name = "compare"
 path = "src/bin/compare_engines.rs"
 
+[[bin]]
+name = "train_nn"
+path = "src/bin/train_nn.rs"
+
+[[bin]]
+name = "compare_all"
+path = "src/bin/compare_all.rs"
+
 [dependencies]
 axum = "0.7.2"
 tokio = { version = "1.34.0", features = ["full"] }
@@ -38,3 +46,5 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 axum-server = "0.7.1"
 lazy_static = "1.4.0"
 rand = "0.8.5"
+ndarray = "0.15"
+rand_distr = "0.4"
