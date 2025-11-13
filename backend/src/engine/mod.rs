@@ -14,6 +14,9 @@ pub mod opening_book;
 pub mod perft;
 pub mod testing;
 pub mod nn_eval;
+pub mod nn_eval_deep;
+pub mod ensemble_eval;
+pub mod analysis;
 
 pub use bitboard::Bitboard;
 pub use position::Position;
@@ -23,3 +26,7 @@ pub use evaluation_v2::EvaluatorV2;
 pub use search::Search;
 pub use search_v2::SearchV2;
 pub use search_v3::SearchV3;
+pub use nn_eval::NeuralNetwork;
+pub use nn_eval_deep::DeepNeuralNetwork;
+pub use ensemble_eval::{EnsembleEvaluator, EvaluationBreakdown};
+pub use analysis::{Analyzer, PositionAnalysis, MoveQuality, MoveClassification, GameAnalysis};

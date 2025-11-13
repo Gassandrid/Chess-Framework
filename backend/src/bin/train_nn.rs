@@ -4,7 +4,7 @@ use chess_engine_api::engine::{
     search_v2::SearchV2,
     search_v2::SearchLimits,
     nn_eval::{NeuralNetwork, position_to_input},
-    evaluation_v2,
+    evaluation_v2::EvaluatorV2,
 };
 use std::time::Duration;
 use ndarray::Array1;
@@ -69,7 +69,7 @@ fn generate_training_data(num_positions: usize, search_depth: u8) -> (Vec<Array1
             }
 
             // Get evaluation from V2.0 engine
-            let eval = evaluation_v2::evaluate(&pos);
+            let eval = EvaluatorV2::evaluate(&pos);
 
             // Only save positions from non-trivial parts of the game
             if move_count > 5 && move_count < 50 {
@@ -125,7 +125,7 @@ fn test_network(nn: &NeuralNetwork) {
     for (name, pos) in test_positions {
         let input = position_to_input(&pos);
         let nn_eval = nn.forward(&input) * 100.0;
-        let classical_eval = evaluation_v2::evaluate(&pos);
+        let classical_eval = EvaluatorV2::evaluate(&pos);
 
         println!("  {}: NN={:.1}, Classical={}", name, nn_eval, classical_eval);
     }

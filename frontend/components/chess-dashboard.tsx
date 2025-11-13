@@ -30,17 +30,18 @@ import {
   Sun,
 } from "lucide-react";
 import ChessGame from "@/components/chess-game";
-//these probably wont be implemented until module 4
 import MoveHistoryPanel from "@/components/move-history-panel";
-import AnalysisPanel from "@/components/analysis-panel";
 import EngineSettingsPanel from "@/components/engine-settings-panel";
+import EnhancedAnalysisPanel from "@/components/enhanced-analysis-panel";
+import EngineComparison from "@/components/engine-comparison";
 import { useTheme } from "@/components/theme-provider";
+import { useChessGame } from "@/hooks/use-chess-game";
 
 export default function ChessDashboard() {
   const [activePanel, setActivePanel] = useState<string>("game");
   const { theme, setTheme } = useTheme();
+  const { boardState, currentPlayer } = useChessGame();
 
-  // sidebar options - alot of these wont be implemented until module 4
   const renderPanel = () => {
     switch (activePanel) {
       case "game":
@@ -48,9 +49,11 @@ export default function ChessDashboard() {
       case "history":
         return <MoveHistoryPanel />;
       case "analysis":
-        return <AnalysisPanel />;
+        return <EnhancedAnalysisPanel boardState={boardState} currentPlayer={currentPlayer} />;
       case "engines":
         return <EngineSettingsPanel />;
+      case "comparison":
+        return <EngineComparison />;
       default:
         return <ChessGame />;
     }
@@ -116,6 +119,15 @@ export default function ChessDashboard() {
                       <span>Engine Settings</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => setActivePanel("comparison")}
+                      isActive={activePanel === "comparison"}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Engine Comparison</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -152,7 +164,9 @@ export default function ChessDashboard() {
                     ? "Move History"
                     : activePanel === "analysis"
                       ? "Position Analysis"
-                      : "Engine Settings"}
+                      : activePanel === "comparison"
+                        ? "Engine Comparison"
+                        : "Engine Settings"}
               </h1>
             </div>
           </header>

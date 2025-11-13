@@ -44,6 +44,11 @@ async fn main() {
         .route("/api/engine/analyze", post(api::engine_handlers::analyze_position))
         .route("/api/engine/evaluate", post(api::engine_handlers::evaluate_position))
         .route("/api/engine/perft", post(api::engine_handlers::perft_test))
+        // New advanced analysis endpoints
+        .route("/api/engine/comprehensive-analysis", post(api::engine_handlers::comprehensive_analysis))
+        .route("/api/engine/move-quality", post(api::engine_handlers::evaluate_move_quality))
+        .route("/api/engine/list", get(api::engine_handlers::list_engines))
+        .route("/api/engine/best-move-versioned", post(api::engine_handlers::get_best_move_versioned))
         .layer(Extension(game))
         .layer(cors);
 
