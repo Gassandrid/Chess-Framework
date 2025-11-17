@@ -1,0 +1,624 @@
+use crate::engine::position::{Position, Color, PieceType};
+
+// Piece values in centipawns
+const PAWN_VALUE: i32 = 100;
+const KNIGHT_VALUE: i32 = 320;
+const BISHOP_VALUE: i32 = 330;
+const ROOK_VALUE: i32 = 500;
+const QUEEN_VALUE: i32 = 900;
+
+// Evaluation bonuses
+const BISHOP_PAIR_BONUS: i32 = 50;
+const ROOK_OPEN_FILE_BONUS: i32 = 25;
+const ROOK_SEMI_OPEN_FILE_BONUS: i32 = 15;
+const CONNECTED_ROOKS_BONUS: i32 = 20;
+const DOUBLED_PAWN_PENALTY: i32 = -10;
+const ISOLATED_PAWN_PENALTY: i32 = -15;
+const PASSED_PAWN_BONUS: [i32; 8] = [0, 10, 20, 35, 60, 100, 150, 0];
+const KNIGHT_OUTPOST_BONUS: i32 = 30;
+
+// Piece-Square Tables for middlegame (from white's perspective)
+// Values are in centipawns, positive is good for the piece owner
+
+const PAWN_PST_MG: [i32; 64] = [
+      0,   0,   0,   0,   0,   0,   0,   0,
+     50,  50,  50,  50,  50,  50,  50,  50,
+     10,  10,  20,  30,  30,  20,  10,  10,
+      5,   5,  10,  25,  25,  10,   5,   5,
+      0,   0,   0,  20,  20,   0,   0,   0,
+      5,  -5, -10,   0,   0, -10,  -5,   5,
+      5,  10,  10, -20, -20,  10,  10,   5,
+      0,   0,   0,   0,   0,   0,   0,   0,
+];
+
+const KNIGHT_PST_MG: [i32; 64] = [
+    -50, -40, -30, -30, -30, -30, -40, -50,
+    -40, -20,   0,   0,   0,   0, -20, -40,
+    -30,   0,  10,  15,  15,  10,   0, -30,
+    -30,   5,  15,  20,  20,  15,   5, -30,
+    -30,   0,  15,  20,  20,  15,   0, -30,
+    -30,   5,  10,  15,  15,  10,   5, -30,
+    -40, -20,   0,   5,   5,   0, -20, -40,
+    -50, -40, -30, -30, -30, -30, -40, -50,
+];
+
+const BISHOP_PST_MG: [i32; 64] = [
+    -20, -10, -10, -10, -10, -10, -10, -20,
+    -10,   0,   0,   0,   0,   0,   0, -10,
+    -10,   0,   5,  10,  10,   5,   0, -10,
+    -10,   5,   5,  10,  10,   5,   5, -10,
+    -10,   0,  10,  10,  10,  10,   0, -10,
+    -10,  10,  10,  10,  10,  10,  10, -10,
+    -10,   5,   0,   0,   0,   0,   5, -10,
+    -20, -10, -10, -10, -10, -10, -10, -20,
+];
+
+const ROOK_PST_MG: [i32; 64] = [
+      0,   0,   0,   0,   0,   0,   0,   0,
+      5,  10,  10,  10,  10,  10,  10,   5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+      0,   0,   0,   5,   5,   0,   0,   0,
+];
+
+const QUEEN_PST_MG: [i32; 64] = [
+    -20, -10, -10,  -5,  -5, -10, -10, -20,
+    -10,   0,   0,   0,   0,   0,   0, -10,
+    -10,   0,   5,   5,   5,   5,   0, -10,
+     -5,   0,   5,   5,   5,   5,   0,  -5,
+      0,   0,   5,   5,   5,   5,   0,  -5,
+    -10,   5,   5,   5,   5,   5,   0, -10,
+    -10,   0,   5,   0,   0,   0,   0, -10,
+    -20, -10, -10,  -5,  -5, -10, -10, -20,
+];
+
+const KING_PST_MG: [i32; 64] = [
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -20, -30, -30, -40, -40, -30, -30, -20,
+    -10, -20, -20, -20, -20, -20, -20, -10,
+     20,  20,   0,   0,   0,   0,  20,  20,
+     20,  30,  10,   0,   0,  10,  30,  20,
+];
+
+// Endgame piece-square tables
+const KING_PST_EG: [i32; 64] = [
+    -50, -40, -30, -20, -20, -30, -40, -50,
+    -30, -20, -10,   0,   0, -10, -20, -30,
+    -30, -10,  20,  30,  30,  20, -10, -30,
+    -30, -10,  30,  40,  40,  30, -10, -30,
+    -30, -10,  30,  40,  40,  30, -10, -30,
+    -30, -10,  20,  30,  30,  20, -10, -30,
+    -30, -30,   0,   0,   0,   0, -30, -30,
+    -50, -30, -30, -30, -30, -30, -30, -50,
+];
+
+const PAWN_PST_EG: [i32; 64] = [
+      0,   0,   0,   0,   0,   0,   0,   0,
+     80,  80,  80,  80,  80,  80,  80,  80,
+     50,  50,  50,  50,  50,  50,  50,  50,
+     30,  30,  30,  30,  30,  30,  30,  30,
+     20,  20,  20,  20,  20,  20,  20,  20,
+     10,  10,  10,  10,  10,  10,  10,  10,
+     10,  10,  10,  10,  10,  10,  10,  10,
+      0,   0,   0,   0,   0,   0,   0,   0,
+];
+
+pub struct EvaluatorV3;
+
+impl EvaluatorV3 {
+    /// Main evaluation function
+    pub fn evaluate(pos: &Position) -> i32 {
+        let mut score = 0;
+
+        // Material and piece-square tables
+        score += Self::evaluate_material_and_pst(pos);
+
+        // Pawn structure
+        score += Self::evaluate_pawn_structure(pos);
+
+        // Piece activity
+        score += Self::evaluate_piece_activity(pos);
+
+        // King safety
+        score += Self::evaluate_king_safety(pos);
+
+        // Special patterns
+        score += Self::evaluate_special_patterns(pos);
+
+        // Return score from the side to move's perspective
+        if pos.side_to_move == Color::White {
+            score
+        } else {
+            -score
+        }
+    }
+
+    fn evaluate_material_and_pst(pos: &Position) -> i32 {
+        let mut score = 0;
+        let game_phase = Self::calculate_game_phase(pos);
+
+        for sq in 0..64 {
+            if let Some((piece_type, color)) = pos.piece_at(sq) {
+                let base_value = match piece_type {
+                    PieceType::Pawn => PAWN_VALUE,
+                    PieceType::Knight => KNIGHT_VALUE,
+                    PieceType::Bishop => BISHOP_VALUE,
+                    PieceType::Rook => ROOK_VALUE,
+                    PieceType::Queen => QUEEN_VALUE,
+                    PieceType::King => 0,
+                };
+
+                let pst_value = Self::get_pst_value(piece_type, sq, color, game_phase);
+                let piece_value = base_value + pst_value;
+
+                if color == Color::White {
+                    score += piece_value;
+                } else {
+                    score -= piece_value;
+                }
+            }
+        }
+
+        score
+    }
+
+    fn get_pst_value(piece_type: PieceType, sq: usize, color: Color, game_phase: i32) -> i32 {
+        // Flip square for black pieces
+        let sq_idx = if color == Color::White {
+            sq
+        } else {
+            sq ^ 56 // Flip rank
+        };
+
+        let mg_value = match piece_type {
+            PieceType::Pawn => PAWN_PST_MG[sq_idx],
+            PieceType::Knight => KNIGHT_PST_MG[sq_idx],
+            PieceType::Bishop => BISHOP_PST_MG[sq_idx],
+            PieceType::Rook => ROOK_PST_MG[sq_idx],
+            PieceType::Queen => QUEEN_PST_MG[sq_idx],
+            PieceType::King => KING_PST_MG[sq_idx],
+        };
+
+        let eg_value = match piece_type {
+            PieceType::Pawn => PAWN_PST_EG[sq_idx],
+            PieceType::King => KING_PST_EG[sq_idx],
+            _ => mg_value, // Use middlegame values for other pieces in endgame
+        };
+
+        // Interpolate between middlegame and endgame
+        (mg_value * game_phase + eg_value * (256 - game_phase)) / 256
+    }
+
+    fn calculate_game_phase(pos: &Position) -> i32 {
+        // Calculate game phase (0 = endgame, 256 = opening/middlegame)
+        let mut phase = 0;
+
+        for sq in 0..64 {
+            if let Some((piece_type, _)) = pos.piece_at(sq) {
+                phase += match piece_type {
+                    PieceType::Pawn => 0,
+                    PieceType::Knight => 1,
+                    PieceType::Bishop => 1,
+                    PieceType::Rook => 2,
+                    PieceType::Queen => 4,
+                    PieceType::King => 0,
+                };
+            }
+        }
+
+        // Total material = 4N + 4B + 4R + 2Q = 24
+        // Map to 0-256 range
+        (phase * 256 / 24).min(256)
+    }
+
+    fn evaluate_pawn_structure(pos: &Position) -> i32 {
+        let mut score = 0;
+
+        // Collect pawn information
+        let mut white_pawns = [false; 8]; // Files with white pawns
+        let mut black_pawns = [false; 8]; // Files with black pawns
+        let mut white_pawn_ranks = [vec![]; 8]; // Ranks of white pawns per file
+        let mut black_pawn_ranks = [vec![]; 8]; // Ranks of black pawns per file
+
+        for sq in 0..64 {
+            if let Some((PieceType::Pawn, color)) = pos.piece_at(sq) {
+                let file = sq % 8;
+                let rank = sq / 8;
+
+                if color == Color::White {
+                    white_pawns[file] = true;
+                    white_pawn_ranks[file].push(rank);
+                } else {
+                    black_pawns[file] = true;
+                    black_pawn_ranks[file].push(rank);
+                }
+            }
+        }
+
+        // Evaluate white pawns
+        for file in 0..8 {
+            if white_pawns[file] {
+                // Doubled pawns
+                if white_pawn_ranks[file].len() > 1 {
+                    score += DOUBLED_PAWN_PENALTY * (white_pawn_ranks[file].len() as i32 - 1);
+                }
+
+                // Isolated pawns
+                let has_neighbor = (file > 0 && white_pawns[file - 1])
+                                || (file < 7 && white_pawns[file + 1]);
+                if !has_neighbor {
+                    score += ISOLATED_PAWN_PENALTY;
+                }
+
+                // Passed pawns
+                for &rank in &white_pawn_ranks[file] {
+                    let is_passed = Self::is_passed_pawn(rank, file, Color::White, &black_pawn_ranks);
+                    if is_passed {
+                        score += PASSED_PAWN_BONUS[rank];
+                    }
+                }
+            }
+        }
+
+        // Evaluate black pawns
+        for file in 0..8 {
+            if black_pawns[file] {
+                // Doubled pawns
+                if black_pawn_ranks[file].len() > 1 {
+                    score -= DOUBLED_PAWN_PENALTY * (black_pawn_ranks[file].len() as i32 - 1);
+                }
+
+                // Isolated pawns
+                let has_neighbor = (file > 0 && black_pawns[file - 1])
+                                || (file < 7 && black_pawns[file + 1]);
+                if !has_neighbor {
+                    score -= ISOLATED_PAWN_PENALTY;
+                }
+
+                // Passed pawns
+                for &rank in &black_pawn_ranks[file] {
+                    let is_passed = Self::is_passed_pawn(rank, file, Color::Black, &white_pawn_ranks);
+                    if is_passed {
+                        score -= PASSED_PAWN_BONUS[7 - rank];
+                    }
+                }
+            }
+        }
+
+        score
+    }
+
+    fn is_passed_pawn(rank: usize, file: usize, color: Color, opp_pawn_ranks: &[Vec<usize>; 8]) -> bool {
+        // Check if there are no opposing pawns in front on this file or adjacent files
+        let check_files = if file == 0 {
+            vec![file, file + 1]
+        } else if file == 7 {
+            vec![file - 1, file]
+        } else {
+            vec![file - 1, file, file + 1]
+        };
+
+        for check_file in check_files {
+            for &opp_rank in &opp_pawn_ranks[check_file] {
+                if color == Color::White && opp_rank < rank {
+                    return false;
+                } else if color == Color::Black && opp_rank > rank {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
+    fn evaluate_piece_activity(pos: &Position) -> i32 {
+        let mut score = 0;
+
+        // Bishop pair bonus
+        let mut white_bishops = 0;
+        let mut black_bishops = 0;
+
+        for sq in 0..64 {
+            if let Some((piece_type, color)) = pos.piece_at(sq) {
+                if piece_type == PieceType::Bishop {
+                    if color == Color::White {
+                        white_bishops += 1;
+                    } else {
+                        black_bishops += 1;
+                    }
+                }
+            }
+        }
+
+        if white_bishops >= 2 {
+            score += BISHOP_PAIR_BONUS;
+        }
+        if black_bishops >= 2 {
+            score -= BISHOP_PAIR_BONUS;
+        }
+
+        // Rook on open/semi-open files
+        score += Self::evaluate_rook_files(pos);
+
+        score
+    }
+
+    fn evaluate_rook_files(pos: &Position) -> i32 {
+        let mut score = 0;
+
+        // Find pawns on each file
+        let mut white_pawns_on_file = [false; 8];
+        let mut black_pawns_on_file = [false; 8];
+
+        for sq in 0..64 {
+            if let Some((PieceType::Pawn, color)) = pos.piece_at(sq) {
+                let file = sq % 8;
+                if color == Color::White {
+                    white_pawns_on_file[file] = true;
+                } else {
+                    black_pawns_on_file[file] = true;
+                }
+            }
+        }
+
+        // Evaluate rooks
+        for sq in 0..64 {
+            if let Some((PieceType::Rook, color)) = pos.piece_at(sq) {
+                let file = sq % 8;
+
+                if color == Color::White {
+                    if !white_pawns_on_file[file] && !black_pawns_on_file[file] {
+                        score += ROOK_OPEN_FILE_BONUS;
+                    } else if !white_pawns_on_file[file] {
+                        score += ROOK_SEMI_OPEN_FILE_BONUS;
+                    }
+                } else {
+                    if !white_pawns_on_file[file] && !black_pawns_on_file[file] {
+                        score -= ROOK_OPEN_FILE_BONUS;
+                    } else if !black_pawns_on_file[file] {
+                        score -= ROOK_SEMI_OPEN_FILE_BONUS;
+                    }
+                }
+            }
+        }
+
+        score
+    }
+
+    fn evaluate_king_safety(pos: &Position) -> i32 {
+        let mut score = 0;
+
+        // Find king positions
+        for sq in 0..64 {
+            if let Some((PieceType::King, color)) = pos.piece_at(sq) {
+                let file = sq % 8;
+                let rank = sq / 8;
+
+                // Penalize king in center during middlegame
+                let game_phase = Self::calculate_game_phase(pos);
+                if game_phase > 128 {
+                    let center_distance = ((file as i32 - 3).abs() + (rank as i32 - 3).abs()).min(4);
+                    let penalty = (4 - center_distance) * 5;
+
+                    if color == Color::White {
+                        score -= penalty;
+                    } else {
+                        score += penalty;
+                    }
+                }
+
+                // Pawn shield bonus
+                let shield_bonus = Self::evaluate_pawn_shield(pos, sq, color);
+                if color == Color::White {
+                    score += shield_bonus;
+                } else {
+                    score -= shield_bonus;
+                }
+            }
+        }
+
+        score
+    }
+
+    fn evaluate_pawn_shield(pos: &Position, king_sq: usize, color: Color) -> i32 {
+        let mut shield = 0;
+        let file = king_sq % 8;
+        let rank = king_sq / 8;
+
+        // Check pawns in front of king
+        let check_files = if file == 0 {
+            vec![file, file + 1]
+        } else if file == 7 {
+            vec![file - 1, file]
+        } else {
+            vec![file - 1, file, file + 1]
+        };
+
+        for check_file in check_files {
+            let pawn_sq = if color == Color::White {
+                if rank > 0 { Some((rank - 1) * 8 + check_file) } else { None }
+            } else {
+                if rank < 7 { Some((rank + 1) * 8 + check_file) } else { None }
+            };
+
+            if let Some(sq) = pawn_sq {
+                if let Some((PieceType::Pawn, piece_color)) = pos.piece_at(sq) {
+                    if piece_color == color {
+                        shield += 10;
+                    }
+                }
+            }
+        }
+
+        shield
+    }
+
+    fn evaluate_special_patterns(pos: &Position) -> i32 {
+        let mut score = 0;
+
+        // Connected rooks
+        score += Self::evaluate_connected_rooks(pos);
+
+        // Knight outposts
+        score += Self::evaluate_knight_outposts(pos);
+
+        score
+    }
+
+    fn evaluate_connected_rooks(pos: &Position) -> i32 {
+        let mut score = 0;
+        let mut white_rooks = Vec::new();
+        let mut black_rooks = Vec::new();
+
+        for sq in 0..64 {
+            if let Some((PieceType::Rook, color)) = pos.piece_at(sq) {
+                if color == Color::White {
+                    white_rooks.push(sq);
+                } else {
+                    black_rooks.push(sq);
+                }
+            }
+        }
+
+        // Check if white rooks are connected (same rank or file with clear path)
+        if white_rooks.len() >= 2 {
+            for i in 0..white_rooks.len() {
+                for j in (i + 1)..white_rooks.len() {
+                    if Self::are_rooks_connected(pos, white_rooks[i], white_rooks[j]) {
+                        score += CONNECTED_ROOKS_BONUS;
+                    }
+                }
+            }
+        }
+
+        // Check black rooks
+        if black_rooks.len() >= 2 {
+            for i in 0..black_rooks.len() {
+                for j in (i + 1)..black_rooks.len() {
+                    if Self::are_rooks_connected(pos, black_rooks[i], black_rooks[j]) {
+                        score -= CONNECTED_ROOKS_BONUS;
+                    }
+                }
+            }
+        }
+
+        score
+    }
+
+    fn are_rooks_connected(pos: &Position, sq1: usize, sq2: usize) -> bool {
+        let file1 = sq1 % 8;
+        let rank1 = sq1 / 8;
+        let file2 = sq2 % 8;
+        let rank2 = sq2 / 8;
+
+        // Same rank or same file
+        if rank1 == rank2 {
+            // Check if path is clear
+            let (min_file, max_file) = if file1 < file2 { (file1, file2) } else { (file2, file1) };
+            for f in (min_file + 1)..max_file {
+                if pos.piece_at(rank1 * 8 + f).is_some() {
+                    return false;
+                }
+            }
+            true
+        } else if file1 == file2 {
+            // Check if path is clear
+            let (min_rank, max_rank) = if rank1 < rank2 { (rank1, rank2) } else { (rank2, rank1) };
+            for r in (min_rank + 1)..max_rank {
+                if pos.piece_at(r * 8 + file1).is_some() {
+                    return false;
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    fn evaluate_knight_outposts(pos: &Position) -> i32 {
+        let mut score = 0;
+
+        for sq in 0..64 {
+            if let Some((PieceType::Knight, color)) = pos.piece_at(sq) {
+                let rank = sq / 8;
+                let file = sq % 8;
+
+                // Outpost conditions: knight in enemy territory, protected by pawn, can't be attacked by enemy pawns
+                let is_outpost = if color == Color::White {
+                    rank <= 4 && Self::is_protected_by_pawn(pos, sq, Color::White)
+                        && !Self::can_be_attacked_by_pawn(sq, Color::Black)
+                } else {
+                    rank >= 3 && Self::is_protected_by_pawn(pos, sq, Color::Black)
+                        && !Self::can_be_attacked_by_pawn(sq, Color::White)
+                };
+
+                if is_outpost {
+                    if color == Color::White {
+                        score += KNIGHT_OUTPOST_BONUS;
+                    } else {
+                        score -= KNIGHT_OUTPOST_BONUS;
+                    }
+                }
+            }
+        }
+
+        score
+    }
+
+    fn is_protected_by_pawn(pos: &Position, sq: usize, color: Color) -> bool {
+        let file = sq % 8;
+        let rank = sq / 8;
+
+        let pawn_sqs = if color == Color::White {
+            let mut sqs = Vec::new();
+            if rank < 7 {
+                if file > 0 {
+                    sqs.push((rank + 1) * 8 + (file - 1));
+                }
+                if file < 7 {
+                    sqs.push((rank + 1) * 8 + (file + 1));
+                }
+            }
+            sqs
+        } else {
+            let mut sqs = Vec::new();
+            if rank > 0 {
+                if file > 0 {
+                    sqs.push((rank - 1) * 8 + (file - 1));
+                }
+                if file < 7 {
+                    sqs.push((rank - 1) * 8 + (file + 1));
+                }
+            }
+            sqs
+        };
+
+        for pawn_sq in pawn_sqs {
+            if let Some((PieceType::Pawn, piece_color)) = pos.piece_at(pawn_sq) {
+                if piece_color == color {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+
+    fn can_be_attacked_by_pawn(sq: usize, color: Color) -> bool {
+        let file = sq % 8;
+        let rank = sq / 8;
+
+        // Simplified: just check if enemy pawns could theoretically attack this square
+        if color == Color::White {
+            rank > 0 && (file > 0 || file < 7)
+        } else {
+            rank < 7 && (file > 0 || file < 7)
+        }
+    }
+}
