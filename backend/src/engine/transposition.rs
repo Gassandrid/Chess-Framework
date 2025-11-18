@@ -67,22 +67,26 @@ impl TranspositionTable {
     }
 
     /// Store an entry in the transposition table
+    /// Uses an enhanced replacement scheme that scores entries based on multiple factors
     pub fn store(&self, hash: u64, depth: u8, score: i32, node_type: NodeType, best_move: Option<Move>) {
         let index = (hash as usize) % self.size;
         let new_entry = TTEntry::new(hash, depth, score, node_type, best_move, self.age);
 
         if let Ok(mut entry) = self.table[index].write() {
-            // Replacement scheme: replace if:
-            // 1. Slot is empty
-            // 2. Same position (hash match)
-            // 3. New entry has greater depth
-            // 4. Entry is from old search (different age)
             let should_replace = match *entry {
                 None => true,
                 Some(old_entry) => {
-                    old_entry.hash == hash
-                        || new_entry.depth >= old_entry.depth
-                        || old_entry.age != self.age
+                    // Always replace if same position
+                    if old_entry.hash == hash {
+                        true
+                    } else {
+                        // Enhanced replacement scheme using scoring
+                        // Lower score means more valuable to keep
+                        let new_score = self.replacement_score(&new_entry);
+                        let old_score = self.replacement_score(&old_entry);
+
+                        new_score < old_score
+                    }
                 }
             };
 
@@ -90,6 +94,30 @@ impl TranspositionTable {
                 *entry = Some(new_entry);
             }
         }
+    }
+
+    /// Calculate replacement score for an entry
+    /// Lower score = more valuable to keep
+    /// Factors: depth (most important), age, node type
+    fn replacement_score(&self, entry: &TTEntry) -> i32 {
+        let mut score = 0;
+
+        // Depth is most important - deeper searches are more valuable
+        // Negative because we want deeper = lower score
+        score -= (entry.depth as i32) * 4;
+
+        // Age penalty - old entries are less valuable
+        let age_diff = self.age.wrapping_sub(entry.age);
+        score += (age_diff as i32) * 2;
+
+        // Node type priority: Exact > LowerBound > UpperBound
+        score += match entry.node_type {
+            NodeType::Exact => 0,      // Most valuable
+            NodeType::LowerBound => 1, // Medium value
+            NodeType::UpperBound => 2, // Least valuable
+        };
+
+        score
     }
 
     /// Clear the transposition table
