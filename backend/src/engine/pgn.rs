@@ -97,7 +97,7 @@ impl PGNGame {
         let from = mv.from() as usize;
         let to = mv.to() as usize;
 
-        if let Some((piece_type, _)) = pos.piece_at(from) {
+        if let Some((piece_type, _)) = pos.piece_at(from as u8) {
             if piece_type == crate::engine::position::PieceType::King {
                 let from_file = from % 8;
                 let to_file = to % 8;
@@ -115,7 +115,7 @@ impl PGNGame {
         let mut san = String::new();
 
         // Piece indicator (skip for pawns)
-        if let Some((piece_type, _)) = pos.piece_at(from) {
+        if let Some((piece_type, _)) = pos.piece_at(from as u8) {
             match piece_type {
                 crate::engine::position::PieceType::Knight => san.push('N'),
                 crate::engine::position::PieceType::Bishop => san.push('B'),
@@ -131,8 +131,8 @@ impl PGNGame {
             let mut same_piece_moves = Vec::new();
             for other_mv in legal_moves.iter() {
                 if other_mv.to() == mv.to() && other_mv.from() != mv.from() {
-                    if let Some((other_piece, _)) = pos.piece_at(other_mv.from() as usize) {
-                        if let Some((this_piece, _)) = pos.piece_at(from) {
+                    if let Some((other_piece, _)) = pos.piece_at(other_mv.from()) {
+                        if let Some((this_piece, _)) = pos.piece_at(from as u8) {
                             if other_piece == this_piece {
                                 same_piece_moves.push(other_mv);
                             }
@@ -190,13 +190,15 @@ impl PGNGame {
         }
 
         // Check/Checkmate
-        let new_pos = pos.make_move(mv);
-        if new_pos.is_in_check(new_pos.side_to_move) {
-            let legal_moves_after = MoveGen::generate_legal_moves(&new_pos);
-            if legal_moves_after.is_empty() {
-                san.push('#');
-            } else {
-                san.push('+');
+        let mut new_pos = pos.clone();
+        if new_pos.make_move(*mv).is_ok() {
+            if new_pos.is_check() {
+                let legal_moves_after = MoveGen::generate_legal_moves(&new_pos);
+                if legal_moves_after.is_empty() {
+                    san.push('#');
+                } else {
+                    san.push('+');
+                }
             }
         }
 
@@ -304,8 +306,8 @@ impl PGNParser {
             let legal_moves = MoveGen::generate_legal_moves(&positions[i]);
 
             for mv in legal_moves.iter() {
-                let new_pos = positions[i].make_move(&mv);
-                if new_pos.hash() == positions[i + 1].hash() {
+                let mut new_pos = positions[i].clone();
+                if new_pos.make_move(*mv).is_ok() && new_pos.hash == positions[i + 1].hash {
                     let san = PGNGame::move_to_san(&mv, &positions[i]);
                     game.add_move(san);
                     break;

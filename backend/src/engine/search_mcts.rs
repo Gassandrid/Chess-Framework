@@ -49,7 +49,7 @@ impl MCTSNode {
     fn new(pos: &Position, move_from_parent: Option<Move>) -> Self {
         let legal_moves = MoveGen::generate_legal_moves(pos);
         Self {
-            position_hash: pos.hash(),
+            position_hash: pos.hash,
             move_from_parent,
             visits: 0,
             wins: 0.0,
@@ -168,7 +168,9 @@ impl MCTSSearch {
 
             if let Some(child_idx) = best_child_idx {
                 if let Some(mv) = self.nodes[child_idx].move_from_parent {
-                    current_pos = current_pos.make_move(&mv);
+                    if current_pos.make_move(mv).is_err() {
+                        break;
+                    }
                     node_idx = child_idx;
                 } else {
                     break;
@@ -191,7 +193,10 @@ impl MCTSSearch {
         let mv = self.nodes[parent_idx].untried_moves.remove(move_idx);
 
         // Make move
-        let child_pos = parent_pos.make_move(&mv);
+        let mut child_pos = parent_pos.clone();
+        if child_pos.make_move(mv).is_err() {
+            return (parent_idx, parent_pos.clone());
+        }
 
         // Create child node
         let child = MCTSNode::new(&child_pos, Some(mv));
@@ -216,7 +221,7 @@ impl MCTSSearch {
 
             if moves.is_empty() {
                 // Terminal position
-                if pos.is_in_check(pos.side_to_move) {
+                if pos.is_check() {
                     // Checkmate - opponent wins
                     return if pos.side_to_move == root_color {
                         0.0 // We lost
@@ -231,7 +236,10 @@ impl MCTSSearch {
 
             // Select random move
             let move_idx = fastrand::usize(..moves.len());
-            pos = pos.make_move(&moves[move_idx]);
+            let mv = moves.iter().nth(move_idx).unwrap();
+            if pos.make_move(*mv).is_err() {
+                break;
+            }
         }
 
         // Evaluate position heuristically

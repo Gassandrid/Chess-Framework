@@ -10,7 +10,7 @@ use crate::engine::{
 };
 use std::time::Duration;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EngineType {
     V1,
     V2,
@@ -93,7 +93,7 @@ impl Tournament {
             }
 
             // Check for threefold repetition
-            let current_hash = pos.hash();
+            let current_hash = pos.hash;
             position_history.push(current_hash);
             if position_history.iter().filter(|&&h| h == current_hash).count() >= 3 {
                 println!("Draw by threefold repetition");
@@ -111,7 +111,7 @@ impl Tournament {
             // Check for stalemate/checkmate
             let legal_moves = MoveGen::generate_legal_moves(&pos);
             if legal_moves.is_empty() {
-                let result = if pos.is_in_check(pos.side_to_move) {
+                let result = if pos.is_check() {
                     // Checkmate
                     if pos.side_to_move == crate::engine::position::Color::White {
                         println!("Black wins by checkmate!");
@@ -151,7 +151,22 @@ impl Tournament {
                 }
 
                 print!("{}. {} ", move_count, mv.to_uci());
-                pos = pos.make_move(&mv);
+                if pos.make_move(mv).is_err() {
+                    println!("\nFailed to make move");
+                    let result = if pos.side_to_move == crate::engine::position::Color::White {
+                        GameResult::BlackWin
+                    } else {
+                        GameResult::WhiteWin
+                    };
+                    self.results.push(GameRecord {
+                        white,
+                        black,
+                        result,
+                        moves: move_count,
+                        opening_moves: opening_moves.clone(),
+                    });
+                    return result;
+                }
 
                 if move_count % 10 == 0 {
                     println!();

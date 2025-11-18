@@ -55,7 +55,7 @@ impl EvaluatorV3 {
         let mut black_bishops = 0;
 
         for sq in 0..64 {
-            if let Some((piece_type, color)) = pos.piece_at(sq) {
+            if let Some((piece_type, color)) = pos.piece_at(sq as u8) {
                 let base_value = match piece_type {
                     PieceType::Pawn => PAWN_VALUE,
                     PieceType::Knight => KNIGHT_VALUE,
