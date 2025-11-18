@@ -23,6 +23,7 @@ pub mod nn_eval;
 pub mod nn_eval_deep;
 pub mod ensemble_eval;
 pub mod analysis;
+pub mod see;
 
 pub use bitboard::Bitboard;
 pub use position::Position;
