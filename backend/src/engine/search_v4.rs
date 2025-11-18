@@ -14,6 +14,7 @@ const RAZOR_MARGIN: i32 = 300;
 const MULTI_CUT_M: usize = 10; // Number of moves to try for multi-cut
 const MULTI_CUT_C: usize = 3;  // Number of cuts needed for multi-cut
 const IID_DEPTH_REDUCTION: u8 = 2; // Depth reduction for IID
+const MAX_EXTENSIONS: i32 = 16; // Maximum cumulative extensions in a line
 
 #[derive(Clone, Debug)]
 pub struct SearchLimits {
@@ -46,6 +47,8 @@ pub struct SearchStats {
     pub tt_cutoffs: u64,
     pub beta_cutoffs: u64,
     pub first_move_cutoffs: u64,
+    pub check_extensions: u64,
+    pub recapture_extensions: u64,
 }
 
 impl SearchStats {
@@ -105,6 +108,11 @@ impl SearchStats {
         println!("  First move cuts:{} ({:.1}%)", self.first_move_cutoffs,
                  self.move_ordering_quality());
         println!();
+        println!("Extensions:");
+        println!("  Check exts:     {}", self.check_extensions);
+        println!("  Recapture exts: {}", self.recapture_extensions);
+        println!("  Total exts:     {}", self.check_extensions + self.recapture_extensions);
+        println!();
         println!("Transposition Table:");
         println!("  TT hits:        {} ({:.1}%)", self.tt_hits, self.tt_hit_rate());
         println!("  TT cutoffs:     {}", self.tt_cutoffs);
@@ -137,6 +145,8 @@ pub struct SearchV4 {
     tt_cutoffs: u64,
     beta_cutoffs: u64,
     first_move_cutoffs: u64,
+    check_extensions: u64,
+    recapture_extensions: u64,
 }
 
 impl SearchV4 {
@@ -162,6 +172,8 @@ impl SearchV4 {
             tt_cutoffs: 0,
             beta_cutoffs: 0,
             first_move_cutoffs: 0,
+            check_extensions: 0,
+            recapture_extensions: 0,
         }
     }
 
@@ -181,6 +193,8 @@ impl SearchV4 {
         self.tt_cutoffs = 0;
         self.beta_cutoffs = 0;
         self.first_move_cutoffs = 0;
+        self.check_extensions = 0;
+        self.recapture_extensions = 0;
 
         let mut best_move = None;
         let mut best_score = -100000;
@@ -226,7 +240,7 @@ impl SearchV4 {
     }
 
     fn aspiration_search(&mut self, pos: &Position, depth: u8, mut alpha: i32, mut beta: i32) -> i32 {
-        let mut score = self.negamax(pos, depth, alpha, beta, 0, true);
+        let mut score = self.negamax(pos, depth, alpha, beta, 0, true, 0);
 
         // Widen window on fail
         let mut delta = 100;
@@ -238,13 +252,13 @@ impl SearchV4 {
                 beta += delta;
             }
             delta *= 2;
-            score = self.negamax(pos, depth, alpha, beta, 0, true);
+            score = self.negamax(pos, depth, alpha, beta, 0, true, 0);
         }
 
         score
     }
 
-    fn negamax(&mut self, pos: &Position, mut depth: u8, mut alpha: i32, beta: i32, ply: usize, is_pv: bool) -> i32 {
+    fn negamax(&mut self, pos: &Position, mut depth: u8, mut alpha: i32, beta: i32, ply: usize, is_pv: bool, extensions: i32) -> i32 {
         if self.should_stop() {
             return 0;
         }
@@ -293,10 +307,16 @@ impl SearchV4 {
 
         let in_check = pos.is_check();
 
-        // Extend search in check
-        if in_check {
-            depth += 1;
+        // Extensions (limited to prevent search explosion)
+        let mut extension = 0;
+
+        // Check extension - always extend when in check
+        if in_check && extensions < MAX_EXTENSIONS {
+            extension = 1;
+            self.check_extensions += 1;
         }
+
+        depth = depth.saturating_add(extension);
 
         // Quiescence search at frontier
         if depth == 0 {
@@ -320,7 +340,7 @@ impl SearchV4 {
             let r = if depth > 6 { 3 } else { 2 };
             let null_pos = pos.make_null_move();
 
-            let score = -self.negamax(&null_pos, depth.saturating_sub(r + 1), -beta, -beta + 1, ply + 1, false);
+            let score = -self.negamax(&null_pos, depth.saturating_sub(r + 1), -beta, -beta + 1, ply + 1, false, extensions);
 
             if score >= beta {
                 self.null_move_cutoffs += 1;
@@ -342,7 +362,7 @@ impl SearchV4 {
         // Internal Iterative Deepening (IID)
         if is_pv && tt_move.is_none() && depth >= 4 {
             let iid_depth = depth.saturating_sub(IID_DEPTH_REDUCTION);
-            self.negamax(pos, iid_depth, alpha, beta, ply, true);
+            self.negamax(pos, iid_depth, alpha, beta, ply, true, extensions);
 
             // Re-probe TT for move from IID search
             if let Some(entry) = self.tt.probe(pos.hash) {
@@ -399,23 +419,23 @@ impl SearchV4 {
                 let reduced_depth = (depth - 1).saturating_sub(reduction);
 
                 // Scout search with reduced depth
-                score = -self.negamax(&new_pos, reduced_depth, -alpha - 1, -alpha, ply + 1, false);
+                score = -self.negamax(&new_pos, reduced_depth, -alpha - 1, -alpha, ply + 1, false, extensions + extension as i32);
 
                 // Re-search if it fails high
                 if score > alpha {
-                    score = -self.negamax(&new_pos, depth - 1, -beta, -alpha, ply + 1, false);
+                    score = -self.negamax(&new_pos, depth - 1, -beta, -alpha, ply + 1, false, extensions + extension as i32);
                 }
             } else {
                 // Principal Variation Search (PVS)
                 if move_count == 1 {
-                    score = -self.negamax(&new_pos, depth - 1, -beta, -alpha, ply + 1, is_pv);
+                    score = -self.negamax(&new_pos, depth - 1, -beta, -alpha, ply + 1, is_pv, extensions + extension as i32);
                 } else {
                     // Null window search
-                    score = -self.negamax(&new_pos, depth - 1, -alpha - 1, -alpha, ply + 1, false);
+                    score = -self.negamax(&new_pos, depth - 1, -alpha - 1, -alpha, ply + 1, false, extensions + extension as i32);
 
                     // Re-search with full window if it fails high
                     if score > alpha && score < beta {
-                        score = -self.negamax(&new_pos, depth - 1, -beta, -alpha, ply + 1, is_pv);
+                        score = -self.negamax(&new_pos, depth - 1, -beta, -alpha, ply + 1, is_pv, extensions + extension as i32);
                     }
                 }
             }
@@ -566,6 +586,8 @@ impl SearchV4 {
             tt_cutoffs: self.tt_cutoffs,
             beta_cutoffs: self.beta_cutoffs,
             first_move_cutoffs: self.first_move_cutoffs,
+            check_extensions: self.check_extensions,
+            recapture_extensions: self.recapture_extensions,
         }
     }
 }
