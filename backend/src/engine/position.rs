@@ -453,6 +453,37 @@ impl Position {
         let bb_with_attacks = bb | attacks;
         bb_with_attacks.north() | bb_with_attacks.south() | attacks
     }
+
+    /// Make a null move (pass the turn to opponent)
+    /// Used in null move pruning
+    pub fn make_null_move(&self) -> Position {
+        let mut new_pos = self.clone();
+
+        // Switch side to move
+        new_pos.side_to_move = !new_pos.side_to_move;
+
+        // Clear en passant square
+        new_pos.en_passant_square = None;
+
+        // Increment halfmove clock
+        new_pos.halfmove_clock += 1;
+
+        // Update hash
+        new_pos.update_hash();
+
+        new_pos
+    }
+
+    /// Check if current position is a repetition
+    /// Takes a history of position hashes
+    pub fn is_repetition(&self, position_history: &[u64]) -> bool {
+        // Count how many times the current position hash appears in history
+        let current_hash = self.hash;
+        let count = position_history.iter().filter(|&&h| h == current_hash).count();
+
+        // Threefold repetition if position occurs 3 times
+        count >= 2  // >= 2 because current position would make it the 3rd occurrence
+    }
 }
 
 impl fmt::Debug for Position {

@@ -67,6 +67,7 @@ pub struct SearchV4 {
     pv_table: [[Option<Move>; MAX_DEPTH as usize]; MAX_DEPTH as usize],
     pv_length: [usize; MAX_DEPTH as usize],
     counter_moves: [[Option<Move>; 64]; 64],
+    position_history: Vec<u64>,  // For repetition detection
 }
 
 impl SearchV4 {
@@ -85,6 +86,7 @@ impl SearchV4 {
             pv_table: [[None; MAX_DEPTH as usize]; MAX_DEPTH as usize],
             pv_length: [0; MAX_DEPTH as usize],
             counter_moves: [[None; 64]; 64],
+            position_history: Vec::new(),
         }
     }
 
@@ -96,6 +98,8 @@ impl SearchV4 {
         self.cut_nodes = 0;
         self.all_nodes = 0;
         self.pv_nodes = 0;
+        self.position_history.clear();
+        self.position_history.push(pos.hash);
 
         let mut best_move = None;
         let mut best_score = -100000;
@@ -166,11 +170,10 @@ impl SearchV4 {
 
         self.pv_length[ply] = ply;
 
-        // Check for draws
-        // TODO: Implement is_repetition() in Position
-        // if ply > 0 && pos.is_repetition() {
-        //     return 0;
-        // }
+        // Check for draws by repetition
+        if ply > 0 && pos.is_repetition(&self.position_history) {
+            return 0;
+        }
 
         // Mate distance pruning
         let mate_value = 10000 - ply as i32;
@@ -222,17 +225,16 @@ impl SearchV4 {
         }
 
         // Null move pruning
-        // TODO: Implement make_null_move() in Position
-        // if !is_pv && !in_check && depth >= 3 && static_eval >= beta {
-        //     let r = if depth > 6 { 3 } else { 2 };
-        //     let null_pos = pos.make_null_move();
-        //
-        //     let score = -self.negamax(&null_pos, depth.saturating_sub(r + 1), -beta, -beta + 1, ply + 1, false);
-        //
-        //     if score >= beta {
-        //         return beta; // Fail-soft
-        //     }
-        // }
+        if !is_pv && !in_check && depth >= 3 && static_eval >= beta {
+            let r = if depth > 6 { 3 } else { 2 };
+            let null_pos = pos.make_null_move();
+
+            let score = -self.negamax(&null_pos, depth.saturating_sub(r + 1), -beta, -beta + 1, ply + 1, false);
+
+            if score >= beta {
+                return beta; // Fail-soft
+            }
+        }
 
         // Razoring
         if !is_pv && !in_check && depth <= 3 {
@@ -290,6 +292,9 @@ impl SearchV4 {
             if new_pos.make_move(mv).is_err() {
                 continue;
             }
+
+            // Add position to history for repetition detection
+            self.position_history.push(new_pos.hash);
 
             move_count += 1;
             let mut score;
@@ -354,10 +359,15 @@ impl SearchV4 {
                             self.history[from][to] += (depth as i32) * (depth as i32);
                         }
 
+                        // Remove position from history before breaking
+                        self.position_history.pop();
                         break;
                     }
                 }
             }
+
+            // Remove position from history after exploring this move
+            self.position_history.pop();
         }
 
         // Store in transposition table
