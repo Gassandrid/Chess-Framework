@@ -40,6 +40,12 @@ pub struct SearchStats {
     pub cut_nodes: u64,
     pub all_nodes: u64,
     pub pv_nodes: u64,
+    pub null_move_cutoffs: u64,
+    pub lmr_searches: u64,
+    pub tt_hits: u64,
+    pub tt_cutoffs: u64,
+    pub beta_cutoffs: u64,
+    pub first_move_cutoffs: u64,
 }
 
 impl SearchStats {
@@ -50,6 +56,62 @@ impl SearchStats {
         } else {
             0
         }
+    }
+
+    pub fn branching_factor(&self) -> f64 {
+        if self.nodes > 0 {
+            (self.nodes as f64).powf(1.0 / 6.0)  // Approximate for depth 6
+        } else {
+            0.0
+        }
+    }
+
+    pub fn move_ordering_quality(&self) -> f64 {
+        if self.beta_cutoffs > 0 {
+            (self.first_move_cutoffs as f64 / self.beta_cutoffs as f64) * 100.0
+        } else {
+            0.0
+        }
+    }
+
+    pub fn tt_hit_rate(&self) -> f64 {
+        if self.nodes > 0 {
+            (self.tt_hits as f64 / self.nodes as f64) * 100.0
+        } else {
+            0.0
+        }
+    }
+
+    pub fn print_detailed(&self) {
+        println!("\n=== Detailed Search Statistics ===");
+        println!("Nodes:            {}", self.nodes);
+        println!("QNodes:           {}", self.qnodes);
+        println!("Total:            {}", self.nodes + self.qnodes);
+        println!("Time:             {}ms", self.time_elapsed.as_millis());
+        println!("NPS:              {}", self.nps());
+        println!();
+        println!("Node Types:");
+        println!("  PV nodes:       {} ({:.1}%)", self.pv_nodes,
+                 (self.pv_nodes as f64 / self.nodes as f64) * 100.0);
+        println!("  Cut nodes:      {} ({:.1}%)", self.cut_nodes,
+                 (self.cut_nodes as f64 / self.nodes as f64) * 100.0);
+        println!("  All nodes:      {} ({:.1}%)", self.all_nodes,
+                 (self.all_nodes as f64 / self.nodes as f64) * 100.0);
+        println!();
+        println!("Pruning:");
+        println!("  Null move cuts: {}", self.null_move_cutoffs);
+        println!("  LMR searches:   {}", self.lmr_searches);
+        println!("  Beta cutoffs:   {}", self.beta_cutoffs);
+        println!("  First move cuts:{} ({:.1}%)", self.first_move_cutoffs,
+                 self.move_ordering_quality());
+        println!();
+        println!("Transposition Table:");
+        println!("  TT hits:        {} ({:.1}%)", self.tt_hits, self.tt_hit_rate());
+        println!("  TT cutoffs:     {}", self.tt_cutoffs);
+        println!();
+        println!("Metrics:");
+        println!("  Branching:      ~{:.2}", self.branching_factor());
+        println!("  Move ordering:  {:.1}%", self.move_ordering_quality());
     }
 }
 
@@ -68,6 +130,13 @@ pub struct SearchV4 {
     pv_length: [usize; MAX_DEPTH as usize],
     counter_moves: [[Option<Move>; 64]; 64],
     position_history: Vec<u64>,  // For repetition detection
+    // Statistics
+    null_move_cutoffs: u64,
+    lmr_searches: u64,
+    tt_hits: u64,
+    tt_cutoffs: u64,
+    beta_cutoffs: u64,
+    first_move_cutoffs: u64,
 }
 
 impl SearchV4 {
@@ -87,6 +156,12 @@ impl SearchV4 {
             pv_length: [0; MAX_DEPTH as usize],
             counter_moves: [[None; 64]; 64],
             position_history: Vec::new(),
+            null_move_cutoffs: 0,
+            lmr_searches: 0,
+            tt_hits: 0,
+            tt_cutoffs: 0,
+            beta_cutoffs: 0,
+            first_move_cutoffs: 0,
         }
     }
 
@@ -100,6 +175,12 @@ impl SearchV4 {
         self.pv_nodes = 0;
         self.position_history.clear();
         self.position_history.push(pos.hash);
+        self.null_move_cutoffs = 0;
+        self.lmr_searches = 0;
+        self.tt_hits = 0;
+        self.tt_cutoffs = 0;
+        self.beta_cutoffs = 0;
+        self.first_move_cutoffs = 0;
 
         let mut best_move = None;
         let mut best_score = -100000;
@@ -188,13 +269,23 @@ impl SearchV4 {
         let mut tt_move = None;
 
         if let Some(entry) = &tt_entry {
+            self.tt_hits += 1;
             tt_move = entry.best_move;
 
             if entry.depth >= depth && !is_pv {
                 match entry.node_type {
-                    NodeType::Exact => return entry.score,
-                    NodeType::LowerBound if entry.score >= beta => return entry.score,
-                    NodeType::UpperBound if entry.score <= alpha => return entry.score,
+                    NodeType::Exact => {
+                        self.tt_cutoffs += 1;
+                        return entry.score;
+                    }
+                    NodeType::LowerBound if entry.score >= beta => {
+                        self.tt_cutoffs += 1;
+                        return entry.score;
+                    }
+                    NodeType::UpperBound if entry.score <= alpha => {
+                        self.tt_cutoffs += 1;
+                        return entry.score;
+                    }
                     _ => {}
                 }
             }
@@ -232,6 +323,7 @@ impl SearchV4 {
             let score = -self.negamax(&null_pos, depth.saturating_sub(r + 1), -beta, -beta + 1, ply + 1, false);
 
             if score >= beta {
+                self.null_move_cutoffs += 1;
                 return beta; // Fail-soft
             }
         }
@@ -301,6 +393,7 @@ impl SearchV4 {
 
             // Late Move Reductions (LMR)
             if move_count > 4 && depth >= 3 && !in_check && !mv.is_capture() && !new_pos.is_check() {
+                self.lmr_searches += 1;
                 // Reduce depth for late moves
                 let reduction = if move_count > 16 { 3 } else if move_count > 8 { 2 } else { 1 };
                 let reduced_depth = (depth - 1).saturating_sub(reduction);
@@ -345,6 +438,10 @@ impl SearchV4 {
                     if score >= beta {
                         // Beta cutoff
                         self.cut_nodes += 1;
+                        self.beta_cutoffs += 1;
+                        if move_count == 1 {
+                            self.first_move_cutoffs += 1;
+                        }
 
                         // Update killer moves
                         if !mv.is_capture() {
@@ -463,6 +560,12 @@ impl SearchV4 {
             cut_nodes: self.cut_nodes,
             all_nodes: self.all_nodes,
             pv_nodes: self.pv_nodes,
+            null_move_cutoffs: self.null_move_cutoffs,
+            lmr_searches: self.lmr_searches,
+            tt_hits: self.tt_hits,
+            tt_cutoffs: self.tt_cutoffs,
+            beta_cutoffs: self.beta_cutoffs,
+            first_move_cutoffs: self.first_move_cutoffs,
         }
     }
 }
